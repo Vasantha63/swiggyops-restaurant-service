@@ -1,0 +1,53 @@
+---
+- name: Setup SwiggyOps Restaurant Service
+  hosts: swiggyops_servers
+  become: yes
+  tasks:
+
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install AWS CLI
+      snap:
+        name: aws-cli
+        classic: yes
+
+    - name: Login to AWS ECR
+      shell: |
+        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 654654435115.dkr.ecr.ap-south-1.amazonaws.com
+
+    - name: Pull Restaurant Service image
+      shell: |
+        docker pull 654654435115.dkr.ecr.ap-south-1.amazonaws.com/swiggyops-restaurant-service:latest
+
+    - name: Stop existing container
+      shell: |
+        docker rm -f restaurant-service || true
+
+    - name: Run Restaurant Service container
+      shell: |
+        docker run -d \
+          --name restaurant-service \
+          -p 8002:8002 \
+          --restart always \
+          654654435115.dkr.ecr.ap-south-1.amazonaws.com/swiggyops-restaurant-service:latest
+
+    - name: Verify container is running
+      shell: docker ps | grep restaurant-service
+      register: container_status
+
+    - name: Print container status
+      debug:
+        msg: "{{ container_status.stdout }}"
